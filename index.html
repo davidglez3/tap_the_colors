@@ -455,60 +455,110 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
 /* ════════════════════════════════════════════════════════
    🔧 CONFIGURA AQUÍ TUS 2 DATOS — solo esto necesitas tocar
    ════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════
+   🔧 CONFIGURA AQUÍ TUS 2 DATOS — solo esto necesitas tocar
+   ════════════════════════════════════════════════════════ */
 const DB_CONFIG = {
-  token:  atob("Z2hwX2RzWlJoOWVXRzVzcXI1RWRlYWtsWk9aOVJvbXFDVzBnekQ3Vg"),   // ghp_xxxxxxxxxxxxxxxxxxxxx
-  repo:   "davidglez3/tap_the_colors",  // ej: "juan/tap-colors"
-  file:   "scores.json",          // no cambies esto
-  branch: "main"                  // ni esto
+  // Opción A — token en claro (GitHub lo revocará si lo detecta):
+  //   token: "ghp_TuTokenAqui",
+  //
+  // Opción B — token ofuscado con base64 (recomendado):
+  //   Consigue el base64 de tu token abriendo la consola (F12) y ejecutando:
+  //   btoa("ghp_TuTokenAqui")
+  //   Luego pégalo aquí:
+  token:  atob("PEGA_AQUI_BASE64_DEL_TOKEN"),
+  repo:   "USUARIO/REPOSITORIO",   // ej: "juan/tap-colors"
+  file:   "scores.json",
+  branch: "main"
 };
 /* ════════════════════════════════════════════════════════ */
 
 // ── GitHub file DB ────────────────────────────────────────
 const SCORES_KEY = 'ttc_scores_v3';
 let _dbReady = false;
+let _ghToken = '';
 
 function initDB(){
-  _dbReady = !!(DB_CONFIG.token && DB_CONFIG.repo);
+  // Resolve token (supports plain string or atob-wrapped)
+  try {
+    _ghToken = typeof DB_CONFIG.token === 'string' ? DB_CONFIG.token.trim() : '';
+  } catch(e){ _ghToken = ''; }
+
+  const PLACEHOLDERS = ['PEGA_AQUI', 'USUARIO/REPOSITORIO', 'ghp_xxx', ''];
+  const tokenOK = _ghToken && !PLACEHOLDERS.some(p => _ghToken.includes(p));
+  const repoOK  = DB_CONFIG.repo && !DB_CONFIG.repo.includes('USUARIO');
+
+  _dbReady = tokenOK && repoOK;
+
   if(!_dbReady){
-    console.log('[TAP] Sin GitHub config — usando localStorage');
+    console.warn('[TAP] GitHub no configurado — ranking solo local.');
+    console.warn('[TAP] token ok:', tokenOK, '| repo ok:', repoOK);
     document.getElementById('fb-banner').classList.add('on');
   } else {
-    console.log('[TAP] GitHub DB listo →', DB_CONFIG.repo + '/' + DB_CONFIG.file);
+    console.log('[TAP] GitHub DB listo:', DB_CONFIG.repo + '/' + DB_CONFIG.file);
+    // Quick connectivity test
+    _ghTestRead();
   }
 }
 
-// Build GitHub Contents API URL
-function _ghURL(){
-  return `https://api.github.com/repos/${DB_CONFIG.repo}/contents/${DB_CONFIG.file}?ref=${DB_CONFIG.branch}`;
+async function _ghTestRead(){
+  try{
+    await _ghRead();
+    console.log('[TAP] ✅ scores.json leído correctamente');
+  } catch(e){
+    console.error('[TAP] ❌ Error al leer scores.json:', e.message);
+    console.error('[TAP] Comprueba: token válido, repo correcto, scores.json existe en el repo');
+  }
 }
 
-// Read scores.json from GitHub (public repo, no auth needed to read)
+function _ghURL(){
+  return `https://api.github.com/repos/${DB_CONFIG.repo}/contents/${DB_CONFIG.file}`;
+}
+
+function _ghHeaders(withAuth){
+  const h = {
+    'Accept': 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json'
+  };
+  if(withAuth) h['Authorization'] = 'Bearer ' + _ghToken;
+  return h;
+}
+
 async function _ghRead(){
-  const res = await fetch(_ghURL());
-  if(!res.ok) throw new Error('GH read ' + res.status);
+  // Try authenticated first (avoids rate limits), fallback to public
+  let res = await fetch(_ghURL() + '?ref=' + DB_CONFIG.branch,
+    { headers: _ghHeaders(!!_ghToken) });
+
+  if(!res.ok){
+    const body = await res.text();
+    throw new Error(`HTTP ${res.status}: ${body.slice(0,120)}`);
+  }
   const meta = await res.json();
-  // content is base64-encoded
-  const json = atob(meta.content.replace(/\n/g,''));
+  // GitHub returns content as base64 with newlines every 60 chars
+  const raw  = meta.content.replace(/\n/g, '').replace(/\s/g, '');
+  const json = decodeURIComponent(escape(atob(raw)));
   return { data: JSON.parse(json), sha: meta.sha };
 }
 
-// Write scores.json to GitHub (requires token)
 async function _ghWrite(data, sha){
-  const body = {
-    message: 'scores update',
-    content: btoa(unescape(encodeURIComponent(JSON.stringify(data)))),
+  const json    = JSON.stringify(data, null, 0);
+  const encoded = btoa(unescape(encodeURIComponent(json)));
+  const body    = {
+    message: `scores: ${new Date().toISOString().slice(0,10)}`,
+    content: encoded,
     sha,
     branch: DB_CONFIG.branch
   };
   const res = await fetch(_ghURL(), {
-    method: 'PUT',
-    headers: {
-      'Authorization': 'token ' + DB_CONFIG.token,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
+    method:  'PUT',
+    headers: _ghHeaders(true),
+    body:    JSON.stringify(body)
   });
-  if(!res.ok) throw new Error('GH write ' + res.status);
+  if(!res.ok){
+    const err = await res.text();
+    throw new Error(`HTTP ${res.status}: ${err.slice(0,200)}`);
+  }
+  return res.json();
 }
 
 async function saveScoreRemote(username, diff, score, combo){
@@ -520,11 +570,13 @@ async function saveScoreRemote(username, diff, score, combo){
       const { data: all, sha } = await _ghRead();
       all.push(entry);
       all.sort((a,b) => b.score - a.score);
-      const trimmed = all.slice(0, 500);
-      await _ghWrite(trimmed, sha);
-      console.log('[TAP] Score guardado en GitHub');
+      await _ghWrite(all.slice(0, 500), sha);
+      console.log('[TAP] ✅ Score guardado en GitHub:', username, score);
       return;
-    } catch(e){ console.warn('[TAP] Error guardando en GitHub:', e.message); }
+    } catch(e){
+      console.error('[TAP] ❌ Error guardando score:', e.message);
+      // Fallthrough to localStorage
+    }
   }
 
   // localStorage fallback
@@ -532,7 +584,8 @@ async function saveScoreRemote(username, diff, score, combo){
     let all = JSON.parse(localStorage.getItem(SCORES_KEY) || '[]');
     all.push(entry);
     all.sort((a,b) => b.score - a.score);
-    localStorage.setItem(SCORES_KEY, JSON.stringify(all.slice(0,200)));
+    localStorage.setItem(SCORES_KEY, JSON.stringify(all.slice(0, 200)));
+    console.log('[TAP] Score guardado en localStorage (fallback)');
   } catch(e){}
 }
 
@@ -540,10 +593,11 @@ async function loadScoresRemote(){
   if(_dbReady){
     try{
       const { data } = await _ghRead();
-      return data;
-    } catch(e){ console.warn('[TAP] Error leyendo GitHub:', e.message); }
+      return Array.isArray(data) ? data : [];
+    } catch(e){
+      console.error('[TAP] ❌ Error cargando scores:', e.message);
+    }
   }
-
   try{
     return JSON.parse(localStorage.getItem(SCORES_KEY) || '[]');
   } catch(e){ return []; }
