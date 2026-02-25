@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+<title>TAP THE COLORS — v3.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;}
+:root{
+  --bg:#04040a;--bg2:#080812;--card:#0d0d1c;--border:#1a1a35;
+  --cyan:#00f0ff;--pink:#ff00cc;--yellow:#ffe500;
+  --green:#00ff7f;--orange:#ff8800;--hard:#ff2244;
+  --text:#d8e8ff;--dim:#384060;--dim2:#555880;
+  --ease:cubic-bezier(.22,.68,0,1.2);
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);
+  font-family:'Rajdhani',sans-serif;color:var(--text);}
+
+/* ── Canvas ─────────────────────────── */
+#cv{position:fixed;inset:0;touch-action:none;cursor:crosshair;}
+#scan{pointer-events:none;position:fixed;inset:0;z-index:3;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.05) 2px,rgba(0,0,0,.05) 4px);}
+
+/* ── Screens ────────────────────────── */
+.scr{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:24px 20px;
+  opacity:0;pointer-events:none;transition:opacity .22s,transform .22s;transform:translateY(8px);}
+.scr.on{opacity:1;pointer-events:all;transform:translateY(0);}
+
+/* ── Logo ───────────────────────────── */
+.logo{font-family:'Orbitron',monospace;font-weight:900;
+  font-size:clamp(2rem,8vw,3.5rem);letter-spacing:.08em;line-height:1.05;text-align:center;
+  background:linear-gradient(135deg,var(--cyan) 0%,var(--pink) 55%,var(--yellow) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 0 28px rgba(0,240,255,.3));}
+.logo-ver{font-size:.65rem;letter-spacing:.5em;color:var(--dim);text-align:center;margin-top:.3rem;}
+
+/* ── Cards ──────────────────────────── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+  padding:1.5rem 1.6rem;width:100%;max-width:340px;}
+.card-title{font-family:'Orbitron',monospace;font-size:.85rem;font-weight:700;
+  letter-spacing:.2em;color:var(--cyan);margin-bottom:1.2rem;text-align:center;}
+
+/* ── Form elements ──────────────────── */
+.field{margin-bottom:.9rem;}
+.field label{display:block;font-size:.6rem;letter-spacing:.3em;color:var(--dim2);
+  text-transform:uppercase;margin-bottom:.4rem;}
+.field input{width:100%;background:#080814;border:1.5px solid var(--border);
+  border-radius:7px;padding:.75rem 1rem;color:var(--text);
+  font-family:'Orbitron',monospace;font-size:.9rem;letter-spacing:.1em;
+  outline:none;transition:border-color .18s,box-shadow .18s;
+  text-transform:uppercase;}
+.field input:focus{border-color:var(--cyan);box-shadow:0 0 12px rgba(0,240,255,.18);}
+.field input.err{border-color:var(--hard);box-shadow:0 0 8px rgba(255,34,68,.2);}
+.err-msg{font-size:.65rem;color:var(--hard);letter-spacing:.05em;margin-top:.3rem;min-height:.9rem;}
+
+/* ── Buttons ────────────────────────── */
+.btn{font-family:'Orbitron',monospace;font-size:.78rem;font-weight:700;
+  letter-spacing:.12em;padding:.82rem 1.5rem;border:none;border-radius:7px;
+  cursor:pointer;text-transform:uppercase;transition:all .15s;width:100%;}
+.btn+.btn{margin-top:.5rem;}
+.btn-primary{background:linear-gradient(135deg,var(--cyan),#0088dd);color:#04040a;
+  box-shadow:0 0 18px rgba(0,240,255,.25);}
+.btn-primary:hover{transform:scale(1.03);box-shadow:0 0 28px rgba(0,240,255,.45);}
+.btn-primary:active{transform:scale(.97);}
+.btn-ghost{background:transparent;color:var(--dim2);border:1.5px solid var(--border);}
+.btn-ghost:hover{color:var(--text);border-color:var(--dim2);}
+.btn-ghost:active{transform:scale(.97);}
+.btn-danger{background:linear-gradient(135deg,var(--hard),#cc0033);color:#fff;
+  box-shadow:0 0 14px rgba(255,34,68,.2);}
+.btn-danger:hover{transform:scale(1.03);}
+
+/* ── Auth tabs ──────────────────────── */
+.auth-tabs{display:flex;background:var(--bg2);border-radius:9px;padding:3px;
+  margin-bottom:1.2rem;}
+.auth-tab{flex:1;padding:.55rem;border:none;border-radius:6px;cursor:pointer;
+  font-family:'Orbitron',monospace;font-size:.65rem;font-weight:700;
+  letter-spacing:.1em;background:transparent;color:var(--dim);transition:all .15s;}
+.auth-tab.on{background:var(--card);color:var(--cyan);
+  box-shadow:0 0 10px rgba(0,240,255,.15);}
+
+/* ── User chip ──────────────────────── */
+.user-chip{display:inline-flex;align-items:center;gap:.5rem;
+  background:var(--card);border:1px solid var(--border);border-radius:20px;
+  padding:.35rem .9rem;font-size:.75rem;letter-spacing:.05em;
+  color:var(--text);margin-bottom:1rem;}
+.user-chip b{color:var(--cyan);font-family:'Orbitron',monospace;font-size:.7rem;}
+.user-chip .chip-out{background:none;border:none;cursor:pointer;color:var(--dim);
+  font-size:.7rem;transition:color .15s;}
+.user-chip .chip-out:hover{color:var(--hard);}
+
+/* ── Difficulty ─────────────────────── */
+.diff-row{display:flex;gap:8px;width:100%;max-width:320px;margin:.6rem 0 1.2rem;}
+.diff-card{flex:1;border:2px solid var(--border);border-radius:10px;
+  background:var(--card);padding:.7rem .3rem;text-align:center;cursor:pointer;
+  transition:all .15s;}
+.diff-card .diff-icon{font-size:1.4rem;display:block;margin-bottom:3px;}
+.diff-card .diff-name{font-family:'Orbitron',monospace;font-size:.55rem;
+  font-weight:700;letter-spacing:.1em;}
+.diff-card .diff-info{font-size:.6rem;color:var(--dim2);margin-top:2px;}
+.diff-card[data-d="easy"].on{border-color:var(--green);background:rgba(0,255,127,.06);
+  box-shadow:0 0 14px rgba(0,255,127,.2);}
+.diff-card[data-d="easy"].on .diff-name{color:var(--green);}
+.diff-card[data-d="medium"].on{border-color:var(--orange);background:rgba(255,136,0,.06);
+  box-shadow:0 0 14px rgba(255,136,0,.2);}
+.diff-card[data-d="medium"].on .diff-name{color:var(--orange);}
+.diff-card[data-d="hard"].on{border-color:var(--hard);background:rgba(255,34,68,.06);
+  box-shadow:0 0 14px rgba(255,34,68,.2);}
+.diff-card[data-d="hard"].on .diff-name{color:var(--hard);}
+.diff-desc-box{font-size:.68rem;color:var(--dim2);text-align:center;
+  max-width:280px;line-height:1.5;min-height:2.2rem;margin-bottom:.8rem;}
+
+/* ── HUD ────────────────────────────── */
+#hud{position:fixed;inset:0;z-index:8;display:none;pointer-events:none;}
+#hud.on{display:block;}
+.hud-top{position:absolute;top:0;left:0;right:0;
+  padding:max(env(safe-area-inset-top),12px) 18px 0;
+  display:flex;align-items:flex-start;justify-content:space-between;}
+.hl{font-size:.52rem;letter-spacing:.3em;color:var(--dim);text-transform:uppercase;margin-bottom:1px;}
+.hs{font-family:'Orbitron',monospace;font-weight:900;
+  font-size:clamp(1.8rem,6.5vw,2.6rem);line-height:1;color:#fff;}
+.hb{font-size:.58rem;color:var(--dim);}
+.hb b{color:var(--yellow);}
+
+/* Target */
+.htarget{display:flex;flex-direction:column;align-items:center;gap:5px;}
+.htaplabel{font-size:.5rem;letter-spacing:.3em;color:var(--dim);text-transform:uppercase;}
+.htring{position:relative;width:clamp(52px,13vw,68px);height:clamp(52px,13vw,68px);}
+#tc{width:100%;height:100%;border-radius:50%;border:2.5px solid rgba(255,255,255,.15);
+  transition:background .1s,box-shadow .12s;}
+#tp{position:absolute;inset:-7px;border-radius:50%;
+  border:2px solid transparent;animation:tpulse 1.8s ease-in-out infinite;}
+@keyframes tpulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.2);opacity:.12}}
+
+.hlives{text-align:right;}
+#hl{font-size:1.25rem;line-height:1.4;}
+
+/* Combo */
+#hcombo{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);
+  text-align:center;opacity:0;transition:opacity .25s;pointer-events:none;}
+.combo-n{font-family:'Orbitron',monospace;font-weight:900;
+  font-size:clamp(2.8rem,11vw,5.5rem);line-height:1;transition:color .18s;}
+.combo-t{font-size:.7rem;letter-spacing:.3em;color:var(--dim);}
+
+/* Bars */
+#miss-bar{position:absolute;top:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,var(--hard),var(--orange));
+  transform:scaleX(0);transform-origin:left;transition:transform .12s;pointer-events:none;z-index:9;}
+#spd-bar{position:absolute;bottom:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,var(--green),var(--yellow),var(--hard));
+  transform-origin:left;transform:scaleX(0);transition:transform .5s;pointer-events:none;}
+
+/* Diff badge in-game */
+#dbadge{position:absolute;top:max(env(safe-area-inset-top),12px);right:18px;
+  margin-top:clamp(60px,15vw,82px);font-family:'Orbitron',monospace;
+  font-size:.5rem;letter-spacing:.15em;padding:.22rem .55rem;
+  border-radius:3px;pointer-events:none;}
+#dbadge.easy{background:rgba(0,255,127,.1);border:1px solid rgba(0,255,127,.3);color:var(--green);}
+#dbadge.medium{background:rgba(255,136,0,.1);border:1px solid rgba(255,136,0,.3);color:var(--orange);}
+#dbadge.hard{background:rgba(255,34,68,.1);border:1px solid rgba(255,34,68,.3);color:var(--hard);}
+
+/* ── Game over ───────────────────────── */
+#go-screen{background:rgba(4,4,10,.97);backdrop-filter:blur(14px);}
+.go-title{font-family:'Orbitron',monospace;font-weight:900;
+  font-size:clamp(1.8rem,8vw,3rem);letter-spacing:.15em;
+  color:var(--hard);text-shadow:0 0 28px rgba(255,34,68,.5);margin-bottom:.3rem;}
+.rec-badge{font-family:'Orbitron',monospace;font-size:.62rem;font-weight:700;
+  letter-spacing:.15em;background:var(--yellow);color:#04040a;
+  padding:.22rem .7rem;border-radius:3px;display:none;margin-bottom:.6rem;}
+@keyframes recglow{0%,100%{box-shadow:0 0 6px rgba(255,229,0,.3)}50%{box-shadow:0 0 20px rgba(255,229,0,.8)}}
+.rec-badge.on{display:inline-block;animation:recglow .8s ease infinite;}
+.go-mode{font-size:.65rem;letter-spacing:.2em;color:var(--dim2);margin-bottom:.8rem;}
+.go-stats{display:flex;gap:1.8rem;margin-bottom:1.2rem;}
+.go-st{text-align:center;}
+.go-st-l{font-size:.58rem;letter-spacing:.2em;color:var(--dim);text-transform:uppercase;margin-bottom:.2rem;}
+.go-st-v{font-family:'Orbitron',monospace;font-size:clamp(1.5rem,5.5vw,2.2rem);font-weight:900;color:#fff;}
+.go-st-v.r{color:var(--yellow);animation:recglow .8s ease infinite;}
+.go-btns{display:flex;flex-direction:column;gap:.45rem;width:100%;max-width:260px;}
+
+/* ── Leaderboard ─────────────────────── */
+#lb-screen{background:rgba(4,4,10,.98);}
+.lb-hdr{width:100%;max-width:380px;display:flex;align-items:center;
+  justify-content:space-between;margin-bottom:.9rem;}
+.lb-htitle{font-family:'Orbitron',monospace;font-size:clamp(1rem,4vw,1.5rem);
+  font-weight:700;letter-spacing:.2em;color:var(--cyan);}
+.lb-tabs{display:flex;gap:4px;background:var(--card);
+  padding:3px;border-radius:8px;width:100%;max-width:380px;margin-bottom:.8rem;}
+.lb-tab{flex:1;padding:.45rem .2rem;border:none;border-radius:5px;
+  font-family:'Orbitron',monospace;font-size:.58rem;font-weight:700;
+  letter-spacing:.08em;cursor:pointer;background:transparent;
+  color:var(--dim);transition:all .15s;white-space:nowrap;}
+.lb-tab[data-t="easy"].on{background:rgba(0,255,127,.1);color:var(--green);}
+.lb-tab[data-t="medium"].on{background:rgba(255,136,0,.1);color:var(--orange);}
+.lb-tab[data-t="hard"].on{background:rgba(255,34,68,.1);color:var(--hard);}
+.lb-tab[data-t="all"].on{background:rgba(0,240,255,.08);color:var(--cyan);}
+.lb-list{width:100%;max-width:380px;display:flex;flex-direction:column;gap:5px;
+  max-height:55vh;overflow-y:auto;padding-right:4px;}
+.lb-list::-webkit-scrollbar{width:3px;}
+.lb-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.lb-item{display:flex;align-items:center;gap:10px;
+  background:var(--card);border:1px solid var(--border);border-radius:9px;
+  padding:9px 12px;transition:border-color .15s;}
+.lb-item.me{border-color:rgba(0,240,255,.35);background:rgba(0,240,255,.04);}
+.lb-rank{font-family:'Orbitron',monospace;font-size:.9rem;font-weight:700;
+  width:26px;flex-shrink:0;text-align:center;}
+.lb-rank.g{color:#ffd700;}.lb-rank.s{color:#c0c0c0;}.lb-rank.b{color:#cd7f32;}.lb-rank.n{color:var(--dim);}
+.lb-info{flex:1;min-width:0;}
+.lb-name{font-size:.88rem;font-weight:700;color:var(--text);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lb-sub{font-size:.58rem;color:var(--dim2);margin-top:1px;}
+.lb-val{font-family:'Orbitron',monospace;font-size:.9rem;font-weight:700;}
+.lb-val.easy{color:var(--green);}.lb-val.medium{color:var(--orange);}.lb-val.hard{color:var(--hard);}
+.lb-empty{text-align:center;color:var(--dim2);padding:2.5rem 0;
+  font-size:.8rem;letter-spacing:.1em;line-height:2;}
+.lb-loading{text-align:center;color:var(--dim);padding:2rem 0;
+  font-size:.7rem;letter-spacing:.2em;}
+
+/* ── Firebase setup banner ──────────── */
+#fb-banner{position:fixed;bottom:0;left:0;right:0;z-index:20;
+  background:linear-gradient(90deg,rgba(255,136,0,.15),rgba(255,136,0,.08));
+  border-top:1px solid rgba(255,136,0,.3);
+  padding:.6rem 1rem;text-align:center;font-size:.65rem;
+  color:var(--orange);letter-spacing:.08em;display:none;}
+#fb-banner.on{display:block;}
+#fb-banner a{color:var(--yellow);text-decoration:underline;}
+
+/* ── Toast / Flash ───────────────────── */
+#toast{position:fixed;top:18%;left:50%;transform:translateX(-50%) translateY(-6px);
+  font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;
+  padding:.5rem 1.2rem;border-radius:5px;z-index:22;
+  pointer-events:none;opacity:0;white-space:nowrap;
+  transition:opacity .22s,transform .22s;}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+#flash{position:fixed;inset:0;pointer-events:none;z-index:15;
+  opacity:0;transition:opacity .08s;}
+#miss-txt{position:fixed;top:48%;left:50%;transform:translate(-50%,-50%);
+  font-family:'Orbitron',monospace;font-weight:900;pointer-events:none;
+  font-size:clamp(1.1rem,4.5vw,1.8rem);color:var(--hard);
+  text-shadow:0 0 20px rgba(255,34,68,.6);
+  opacity:0;transition:opacity .15s;z-index:16;}
+#miss-txt.on{opacity:1;}
+
+/* ── Tap ripple ─────────────────────── */
+.ripple{position:fixed;border-radius:50%;pointer-events:none;z-index:14;
+  transform:scale(0);animation:rip .4s ease-out forwards;}
+@keyframes rip{to{transform:scale(3);opacity:0;}}
+</style>
+</head>
+<body>
+<canvas id="cv"></canvas>
+<div id="scan"></div>
+<div id="flash"></div>
+<div id="miss-txt"></div>
+<div id="toast"></div>
+<div id="fb-banner">
+  ⚠️ Sin GitHub configurado — el ranking es solo local.
+  <a href="#" onclick="showGHHelp()">Ver instrucciones</a>
+</div>
+
+<!-- ════════ HUD ════════════════════════════════════════ -->
+<div id="hud">
+  <div id="miss-bar"></div>
+  <div class="hud-top">
+    <div>
+      <div class="hl">Score</div>
+      <div class="hs" id="hs">0</div>
+      <div class="hb">Récord: <b id="hbest">0</b></div>
+    </div>
+    <div class="htarget">
+      <div class="htaplabel">toca este</div>
+      <div class="htring">
+        <div id="tc"></div>
+        <div id="tp"></div>
+      </div>
+    </div>
+    <div class="hlives">
+      <div class="hl">Vidas</div>
+      <div id="hl"></div>
+    </div>
+  </div>
+  <div id="dbadge"></div>
+  <div id="hcombo">
+    <div class="combo-n" id="cnum">×0</div>
+    <div class="combo-t" id="ctag">COMBO</div>
+  </div>
+  <div id="spd-bar"></div>
+  <button id="hud-exit-btn" onclick="exitToMenu()"
+    style="position:absolute;bottom:max(env(safe-area-inset-bottom),18px);right:18px;
+    background:rgba(8,8,18,.85);border:1px solid #252545;border-radius:8px;
+    padding:.45rem .75rem;cursor:pointer;font-family:'Orbitron',monospace;font-size:.55rem;
+    letter-spacing:.12em;color:#484870;pointer-events:all;transition:color .15s,border-color .15s;z-index:9;"
+    onmouseover="this.style.color='#ff6680';this.style.borderColor='#ff2244'"
+    onmouseout="this.style.color='#484870';this.style.borderColor='#252545'">✕ SALIR</button>
+</div>
+
+<!-- ════════ AUTH SCREEN ════════════════════════════════ -->
+<div class="scr on" id="auth-screen"
+  style="background:radial-gradient(ellipse at 50% 35%,#0c0c20 0%,#04040a 65%);">
+  <div class="logo">TAP THE<br>COLORS</div>
+  <div class="logo-ver">V 3.0</div>
+  <div style="height:1.4rem"></div>
+  <div class="card" id="auth-card">
+    <div class="auth-tabs">
+      <button class="auth-tab on" id="tab-login"    onclick="switchAuthTab('login')">ENTRAR</button>
+      <button class="auth-tab"   id="tab-register"  onclick="switchAuthTab('register')">REGISTRO</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="form-login">
+      <div class="field">
+        <label>Nombre de usuario</label>
+        <input id="li-user" type="text" maxlength="10" placeholder="TU NOMBRE"
+          autocomplete="username" spellcheck="false" oninput="clearErr()">
+        <div class="err-msg" id="li-err"></div>
+      </div>
+      <div class="field">
+        <label>PIN (4 dígitos)</label>
+        <input id="li-pin" type="password" maxlength="4" placeholder="••••"
+          inputmode="numeric" pattern="[0-9]*" autocomplete="current-password" oninput="clearErr()">
+      </div>
+      <button class="btn btn-primary" onclick="doLogin()">ENTRAR →</button>
+    </div>
+
+    <!-- REGISTER -->
+    <div id="form-register" style="display:none;">
+      <div class="field">
+        <label>Elige tu nombre</label>
+        <input id="re-user" type="text" maxlength="10" placeholder="TU NOMBRE"
+          autocomplete="username" spellcheck="false" oninput="clearErr()">
+        <div class="err-msg" id="re-err"></div>
+      </div>
+      <div class="field">
+        <label>Crea un PIN (4 dígitos)</label>
+        <input id="re-pin" type="password" maxlength="4" placeholder="••••"
+          inputmode="numeric" pattern="[0-9]*" autocomplete="new-password" oninput="clearErr()">
+      </div>
+      <div class="field">
+        <label>Confirma el PIN</label>
+        <input id="re-pin2" type="password" maxlength="4" placeholder="••••"
+          inputmode="numeric" pattern="[0-9]*" autocomplete="new-password" oninput="clearErr()">
+      </div>
+      <button class="btn btn-primary" onclick="doRegister()">CREAR CUENTA →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ MENU / DIFFICULTY ══════════════════════════ -->
+<div class="scr" id="menu-screen">
+  <div class="logo">TAP THE<br>COLORS</div>
+  <div style="height:.8rem"></div>
+  <div class="user-chip">
+    <span>👤 <b id="chip-name">—</b></span>
+    <button class="chip-out" onclick="logout()" title="Cerrar sesión"
+      style="color:#ff5566;font-size:.65rem;letter-spacing:.05em;padding:.1rem .3rem;
+      border-radius:4px;border:1px solid transparent;transition:all .15s;"
+      onmouseover="this.style.background='rgba(255,34,68,.12)';this.style.borderColor='#ff2244'"
+      onmouseout="this.style.background='transparent';this.style.borderColor='transparent'">
+      🚪 salir
+    </button>
+  </div>
+  <div style="font-size:.6rem;letter-spacing:.3em;color:var(--dim);text-transform:uppercase;margin-bottom:.6rem;">
+    Selecciona dificultad
+  </div>
+  <div class="diff-row" id="diff-pick">
+    <div class="diff-card on" data-d="easy"   onclick="pickDiff('easy')">
+      <span class="diff-icon">🟢</span>
+      <div class="diff-name">FÁCIL</div>
+      <div class="diff-info">3 col.</div>
+    </div>
+    <div class="diff-card"    data-d="medium" onclick="pickDiff('medium')">
+      <span class="diff-icon">🟡</span>
+      <div class="diff-name">MEDIO</div>
+      <div class="diff-info">5 col.</div>
+    </div>
+    <div class="diff-card"    data-d="hard"   onclick="pickDiff('hard')">
+      <span class="diff-icon">🔴</span>
+      <div class="diff-name">DIFÍCIL</div>
+      <div class="diff-info">7 col.</div>
+    </div>
+  </div>
+  <div class="diff-desc-box" id="diff-desc-box"></div>
+  <div style="width:100%;max-width:260px;display:flex;flex-direction:column;gap:.45rem;">
+    <button class="btn btn-primary" onclick="startGame()">▶ JUGAR</button>
+    <button class="btn btn-ghost"   onclick="openLB()">🏆 RANKING</button>
+  </div>
+  <div style="margin-top:1rem;text-align:center;">
+    <div style="font-size:.58rem;letter-spacing:.1em;color:var(--dim);">Tus récords</div>
+    <div style="display:flex;gap:1.2rem;margin-top:.4rem;justify-content:center;" id="best-row"></div>
+  </div>
+</div>
+
+<!-- ════════ GAME OVER ══════════════════════════════════ -->
+<div class="scr" id="go-screen" style="background:rgba(4,4,10,.97);backdrop-filter:blur(14px);">
+  <div class="go-title">GAME OVER</div>
+  <div class="rec-badge" id="rec-badge">🏆 NUEVO RÉCORD</div>
+  <div class="go-mode"   id="go-mode"></div>
+  <div class="go-stats">
+    <div class="go-st"><div class="go-st-l">Puntos</div><div class="go-st-v" id="go-sc">0</div></div>
+    <div class="go-st"><div class="go-st-l">Récord</div><div class="go-st-v" id="go-bs">0</div></div>
+    <div class="go-st"><div class="go-st-l">Max Combo</div><div class="go-st-v" id="go-cb">0</div></div>
+  </div>
+  <div class="go-btns">
+    <button class="btn btn-primary" onclick="retryGame()">🔄 REINTENTAR</button>
+    <button class="btn btn-ghost"   onclick="openLBFromGO()">🏆 VER RANKING</button>
+    <button class="btn btn-ghost"   onclick="showScr('menu-screen')">⚙ CAMBIAR DIFICULTAD</button>
+    <button class="btn btn-ghost"   onclick="logoutToAuth()" style="border-color:#ff2244;color:#ff6680;">🚪 CAMBIAR USUARIO</button>
+  </div>
+</div>
+
+<!-- ════════ LEADERBOARD ════════════════════════════════ -->
+<div class="scr" id="lb-screen" style="background:rgba(4,4,10,.98);">
+  <div class="lb-hdr" style="max-width:380px;width:100%;">
+    <div class="lb-htitle">🏆 RANKING</div>
+    <button class="btn-ghost btn" style="width:auto;padding:.4rem .9rem;font-size:.65rem;"
+      onclick="closeLB()">← VOLVER</button>
+  </div>
+  <div class="lb-tabs" id="lb-tabs">
+    <div class="lb-tab on" data-t="easy"   onclick="lbSwitch('easy')">FÁCIL</div>
+    <div class="lb-tab"    data-t="medium" onclick="lbSwitch('medium')">MEDIO</div>
+    <div class="lb-tab"    data-t="hard"   onclick="lbSwitch('hard')">DIFÍCIL</div>
+    <div class="lb-tab"    data-t="all"    onclick="lbSwitch('all')">TODO</div>
+  </div>
+  <div class="lb-list" id="lb-list"></div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   TAP THE COLORS v3.0
+   ─ Registro/Login con PIN (localStorage)
+   ─ Base de datos: fichero scores.json en GitHub vía API
+   ─ Fallback: localStorage (solo local)
+   ─ Hit detection mejorado con coordenadas calibradas
+   ─ Penalización por dejar caer el color correcto
+   ─ 3 dificultades: Fácil / Medio / Difícil
+═══════════════════════════════════════════════════════════
+
+  ╔═════════════════════════════════════════════════╗
+  ║  CONFIGURACIÓN BASE DE DATOS (fichero GitHub)   ║
+  ║                                                 ║
+  ║  1. En tu repo GitHub crea el fichero           ║
+  ║     scores.json con contenido: []               ║
+  ║                                                 ║
+  ║  2. Ve a GitHub → Settings → Developer settings ║
+  ║     → Personal access tokens → Tokens (classic) ║
+  ║     → Generate new token                        ║
+  ║     Marca solo: ✅ repo (acceso completo)        ║
+  ║     Copia el token generado                     ║
+  ║                                                 ║
+  ║  3. Rellena DB_CONFIG abajo con tus datos       ║
+  ╚═════════════════════════════════════════════════╝
+*/
+
+/* ════════════════════════════════════════════════════════
+   🔧 CONFIGURA AQUÍ TUS 2 DATOS — solo esto necesitas tocar
+   ════════════════════════════════════════════════════════ */
+const DB_CONFIG = {
+  token:  "PEGA_AQUI_TU_TOKEN",   // ghp_xxxxxxxxxxxxxxxxxxxxx
+  repo:   "USUARIO/REPOSITORIO",  // ej: "juan/tap-colors"
+  file:   "scores.json",          // no cambies esto
+  branch: "main"                  // ni esto
+};
+/* ════════════════════════════════════════════════════════ */
+
+// ── GitHub file DB ────────────────────────────────────────
+const SCORES_KEY = 'ttc_scores_v3';
+let _dbReady = false;
+
+function initDB(){
+  _dbReady = !!(DB_CONFIG.token && DB_CONFIG.repo);
+  if(!_dbReady){
+    console.log('[TAP] Sin GitHub config — usando localStorage');
+    document.getElementById('fb-banner').classList.add('on');
+  } else {
+    console.log('[TAP] GitHub DB listo →', DB_CONFIG.repo + '/' + DB_CONFIG.file);
+  }
+}
+
+// Build GitHub Contents API URL
+function _ghURL(){
+  return `https://api.github.com/repos/${DB_CONFIG.repo}/contents/${DB_CONFIG.file}?ref=${DB_CONFIG.branch}`;
+}
+
+// Read scores.json from GitHub (public repo, no auth needed to read)
+async function _ghRead(){
+  const res = await fetch(_ghURL());
+  if(!res.ok) throw new Error('GH read ' + res.status);
+  const meta = await res.json();
+  // content is base64-encoded
+  const json = atob(meta.content.replace(/\n/g,''));
+  return { data: JSON.parse(json), sha: meta.sha };
+}
+
+// Write scores.json to GitHub (requires token)
+async function _ghWrite(data, sha){
+  const body = {
+    message: 'scores update',
+    content: btoa(unescape(encodeURIComponent(JSON.stringify(data)))),
+    sha,
+    branch: DB_CONFIG.branch
+  };
+  const res = await fetch(_ghURL(), {
+    method: 'PUT',
+    headers: {
+      'Authorization': 'token ' + DB_CONFIG.token,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  if(!res.ok) throw new Error('GH write ' + res.status);
+}
+
+async function saveScoreRemote(username, diff, score, combo){
+  if(!username || score === 0) return;
+  const entry = { username, diff, score, combo, ts: Date.now() };
+
+  if(_dbReady){
+    try{
+      const { data: all, sha } = await _ghRead();
+      all.push(entry);
+      all.sort((a,b) => b.score - a.score);
+      const trimmed = all.slice(0, 500);
+      await _ghWrite(trimmed, sha);
+      console.log('[TAP] Score guardado en GitHub');
+      return;
+    } catch(e){ console.warn('[TAP] Error guardando en GitHub:', e.message); }
+  }
+
+  // localStorage fallback
+  try{
+    let all = JSON.parse(localStorage.getItem(SCORES_KEY) || '[]');
+    all.push(entry);
+    all.sort((a,b) => b.score - a.score);
+    localStorage.setItem(SCORES_KEY, JSON.stringify(all.slice(0,200)));
+  } catch(e){}
+}
+
+async function loadScoresRemote(){
+  if(_dbReady){
+    try{
+      const { data } = await _ghRead();
+      return data;
+    } catch(e){ console.warn('[TAP] Error leyendo GitHub:', e.message); }
+  }
+
+  try{
+    return JSON.parse(localStorage.getItem(SCORES_KEY) || '[]');
+  } catch(e){ return []; }
+}
+
+// ── AUTH ─────────────────────────────────────────────────
+// Accounts stored in localStorage as { [username]: { pin, bests:{easy,medium,hard} } }
+const ACCOUNTS_KEY = 'ttc_accounts_v3';
+const SESSION_KEY  = 'ttc_session_v3';
+
+function getAccounts(){
+  try{ return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '{}'); }
+  catch(e){ return {}; }
+}
+function saveAccounts(a){ localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(a)); }
+function getSession(){
+  try{ return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); }
+  catch(e){ return null; }
+}
+function saveSession(s){ localStorage.setItem(SESSION_KEY, JSON.stringify(s)); }
+function clearSession(){ localStorage.removeItem(SESSION_KEY); }
+
+let currentUser = null; // { username, bests:{easy,medium,hard} }
+
+function switchAuthTab(t){
+  document.getElementById('tab-login').classList.toggle('on', t==='login');
+  document.getElementById('tab-register').classList.toggle('on', t==='register');
+  document.getElementById('form-login').style.display    = t==='login'    ? '' : 'none';
+  document.getElementById('form-register').style.display = t==='register' ? '' : 'none';
+  clearErr();
+}
+
+function clearErr(){
+  document.getElementById('li-err').textContent = '';
+  document.getElementById('re-err').textContent = '';
+  ['li-user','li-pin','re-user','re-pin','re-pin2'].forEach(id=>{
+    document.getElementById(id)?.classList.remove('err');
+  });
+}
+
+function doLogin(){
+  const user = document.getElementById('li-user').value.trim().toUpperCase();
+  const pin  = document.getElementById('li-pin').value.trim();
+  const err  = document.getElementById('li-err');
+  const accs = getAccounts();
+
+  if(!user){ setErr('li-user','li-err','Escribe tu nombre'); return; }
+  if(!accs[user]){ setErr('li-user','li-err','Usuario no encontrado'); return; }
+  if(accs[user].pin !== pin){ setErr('li-pin','li-err','PIN incorrecto'); return; }
+
+  loginUser(user, accs[user].bests || {easy:0,medium:0,hard:0});
+}
+
+function doRegister(){
+  const user  = document.getElementById('re-user').value.trim().toUpperCase();
+  const pin   = document.getElementById('re-pin').value.trim();
+  const pin2  = document.getElementById('re-pin2').value.trim();
+  const err   = document.getElementById('re-err');
+  const accs  = getAccounts();
+
+  if(!user || user.length < 2){ setErr('re-user','re-err','Mín. 2 caracteres'); return; }
+  if(!/^[A-Z0-9_]+$/.test(user)){ setErr('re-user','re-err','Solo letras, números y _'); return; }
+  if(accs[user]){ setErr('re-user','re-err','Ese nombre ya existe'); return; }
+  if(pin.length !== 4 || !/^\d{4}$/.test(pin)){ setErr('re-pin','re-err','PIN debe ser 4 dígitos'); return; }
+  if(pin !== pin2){ setErr('re-pin2','re-err','Los PINs no coinciden'); return; }
+
+  accs[user] = { pin, bests:{easy:0,medium:0,hard:0}, created: Date.now() };
+  saveAccounts(accs);
+  loginUser(user, {easy:0,medium:0,hard:0});
+  showToast('✅ ¡Cuenta creada!', var_('--green'));
+}
+
+function setErr(inputId, errId, msg){
+  document.getElementById(inputId)?.classList.add('err');
+  document.getElementById(errId).textContent = msg;
+}
+
+function loginUser(username, bests){
+  currentUser = { username, bests };
+  saveSession(currentUser);
+  document.getElementById('chip-name').textContent = username;
+  updateBestRow();
+  showScr('menu-screen');
+}
+
+function logout(){
+  currentUser = null;
+  clearSession();
+  document.getElementById('li-user').value = '';
+  document.getElementById('li-pin').value  = '';
+  switchAuthTab('login');
+  showScr('auth-screen');
+}
+
+function logoutToAuth(){
+  // Called from Game Over — goes straight to login screen
+  logout();
+}
+
+function exitToMenu(){
+  // Called from in-game exit button — stops game and goes to menu
+  if(!gameRunning) return;
+  gameRunning = false;
+  cancelAnimationFrame(animId);
+  document.getElementById('hud').classList.remove('on');
+  showScr('menu-screen');
+  gameState = 'menu';
+  objects = []; particles = []; floaters = [];
+}
+
+function persistBest(diff, score){
+  if(!currentUser) return;
+  if(score > currentUser.bests[diff]){
+    currentUser.bests[diff] = score;
+    saveSession(currentUser);
+    const accs = getAccounts();
+    if(accs[currentUser.username]){
+      accs[currentUser.username].bests = currentUser.bests;
+      saveAccounts(accs);
+    }
+  }
+}
+
+function var_(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+// ── Difficulty config ────────────────────────────────────
+const DIFF = {
+  easy:{
+    label:'FÁCIL', badgeClass:'easy',
+    desc:'3 colores · Caída lenta · 3 vidas · Caer o equivocarse = -1 vida',
+    colors:3, baseSpeed:1.9, spawnMs:1300, speedPerHit:.016,
+    minSpawnMs:580, lives:3
+  },
+  medium:{
+    label:'MEDIO', badgeClass:'medium',
+    desc:'5 colores · Velocidad media · 3 vidas · Caer o equivocarse = -1 vida',
+    colors:5, baseSpeed:2.9, spawnMs:920, speedPerHit:.026,
+    minSpawnMs:380, lives:3
+  },
+  hard:{
+    label:'DIFÍCIL', badgeClass:'hard',
+    desc:'7 colores · Muy rápido · 3 vidas · Caer o equivocarse = -1 vida',
+    colors:7, baseSpeed:4.2, spawnMs:560, speedPerHit:.038,
+    minSpawnMs:230, lives:3
+  }
+};
+
+const COLORS = [
+  {n:'ROJO',   h:'#ff2244',g:'rgba(255,34,68,'},
+  {n:'AZUL',   h:'#1199ff',g:'rgba(17,153,255,'},
+  {n:'VERDE',  h:'#00ff7f',g:'rgba(0,255,127,'},
+  {n:'AMARIL', h:'#ffe500',g:'rgba(255,229,0,'},
+  {n:'CYAN',   h:'#00f0ff',g:'rgba(0,240,255,'},
+  {n:'ROSA',   h:'#ff00cc',g:'rgba(255,0,204,'},
+  {n:'NARANJ', h:'#ff8800',g:'rgba(255,136,0,'},
+];
+
+// ── Canvas & game state ──────────────────────────────────
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let stars = [];   // must be before resizeCanvas() which calls initStars()
+let CW = 0, CH = 0;
+let DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+function resizeCanvas(){
+  CW = window.innerWidth;
+  CH = window.innerHeight;
+  cv.style.width  = CW + 'px';
+  cv.style.height = CH + 'px';
+  cv.width  = Math.round(CW * DPR);
+  cv.height = Math.round(CH * DPR);
+  ctx.scale(DPR, DPR);
+  initStars();
+}
+window.addEventListener('resize', () => { ctx.setTransform(1,0,0,1,0,0); resizeCanvas(); });
+resizeCanvas();
+
+let difficulty = 'easy';
+let score=0, combo=0, maxCombo=0, hits=0, lives=3;
+let speed=0, spawnMs=0, lastSpawnT=0;
+let targetIdx=0, activeColors=3;
+let gameRunning=false, gameState='auth';
+let objects=[], particles=[], floaters=[], ripples=[];
+let shakeAmt=0;
+let animId=null, lastFrame=0;
+let lbPrevState='menu';
+
+// ── Stars ────────────────────────────────────────────────
+function initStars(){
+  stars = [];
+  for(let i=0;i<110;i++)
+    stars.push({x:Math.random()*CW, y:Math.random()*CH,
+      s:.3+Math.random()*1.3, v:.04+Math.random()*.22, a:.3+Math.random()*.7});
+}
+
+// ── Background ───────────────────────────────────────────
+function drawBG(dt, spd=0.4){
+  ctx.fillStyle = '#04040a';
+  ctx.fillRect(0, 0, CW, CH);
+  // Grid
+  ctx.lineWidth = 1;
+  for(let i=0;i<=14;i++){
+    ctx.strokeStyle = 'rgba(18,18,42,0.7)';
+    ctx.beginPath(); ctx.moveTo(i*(CW/14),0); ctx.lineTo(i*(CW/14),CH); ctx.stroke();
+  }
+  for(let i=0;i<=20;i++){
+    const y=i*(CH/20), a=.06+(i/20)*.28;
+    ctx.strokeStyle = `rgba(15,15,40,${a})`;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(CW,y); ctx.stroke();
+  }
+  // Stars
+  const sv = gameRunning ? spd * .055 : .025;
+  stars.forEach(s=>{
+    s.y += s.v * sv * dt;
+    if(s.y > CH+2){ s.y=-2; s.x=Math.random()*CW; }
+    ctx.beginPath(); ctx.arc(s.x, s.y, s.s, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(200,215,255,${s.a*.5})`; ctx.fill();
+  });
+}
+
+// ── Object spawning ──────────────────────────────────────
+const SHAPES = ['circle','square','diamond'];
+
+function spawnObj(){
+  const conf = DIFF[difficulty];
+  const isCorrect = Math.random() < .43;
+  let ci;
+  if(isCorrect) ci = targetIdx;
+  else { do{ ci=Math.floor(Math.random()*activeColors); }while(ci===targetIdx); }
+
+  const r = clamp(CW * .057, 26, 54);
+  const x = r+12 + Math.random()*(CW - r*2 - 24);
+  const vel = conf.baseSpeed + hits * conf.speedPerHit;
+
+  // Hard mode: diagonal / sideways drift
+  let vx = 0, wobble = 0, wobbleFreq = 0;
+  if(difficulty === 'hard'){
+    const style = Math.random();
+    if(style < 0.35){
+      // Pure diagonal — consistent left or right drift
+      vx = (Math.random() * 2.5 + 1.0) * (Math.random()<.5 ? 1 : -1);
+    } else if(style < 0.65){
+      // Sinusoidal wobble — weaves side to side
+      wobble = Math.random() * 2.2 + 0.8;
+      wobbleFreq = Math.random() * 0.04 + 0.02;
+    } else {
+      // Diagonal + wobble combined
+      vx = (Math.random() * 1.4 + 0.4) * (Math.random()<.5 ? 1 : -1);
+      wobble = Math.random() * 1.4 + 0.4;
+      wobbleFreq = Math.random() * 0.035 + 0.018;
+    }
+  }
+  objects.push({x, y:-r-8, r, ci, shape:SHAPES[Math.floor(Math.random()*3)],
+    vel, vx, wobble, wobbleFreq, wobbleT: Math.random()*Math.PI*2,
+    opacity:1, id: Math.random(), missed:false });
+}
+
+function drawObj(o){
+  ctx.save();
+  ctx.globalAlpha = o.opacity;
+  const c = COLORS[o.ci];
+  ctx.shadowBlur  = 14 + Math.sin(Date.now()*.004)*5;
+  ctx.shadowColor = c.h;
+  ctx.fillStyle   = c.h;
+  ctx.strokeStyle = 'rgba(255,255,255,.22)';
+  ctx.lineWidth   = 2;
+  const {x,y,r} = o;
+  if(o.shape==='circle'){
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  } else if(o.shape==='square'){
+    ctx.beginPath(); ctx.roundRect(x-r,y-r,r*2,r*2,r*.28); ctx.fill(); ctx.stroke();
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(x,y-r); ctx.lineTo(x+r,y); ctx.lineTo(x,y+r); ctx.lineTo(x-r,y);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
+  ctx.fillStyle  = 'rgba(0,0,0,.62)';
+  ctx.font       = `bold ${clamp(r*.45,8,14)}px Rajdhani`;
+  ctx.textAlign  = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(c.n, x, y);
+  ctx.restore();
+}
+
+// ── Particles & floaters ─────────────────────────────────
+function spawnParts(x,y,hex,n=18){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, sp=2+Math.random()*5.5;
+    particles.push({x,y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-1.2,
+      r:1.5+Math.random()*4, color:hex, life:1, decay:.02+Math.random()*.028});
+  }
+}
+function spawnFloat(x,y,txt,color){
+  floaters.push({x,y,vy:-2.3,txt,color,life:1,decay:.022});
+}
+function runFX(){
+  particles = particles.filter(p=>{
+    p.x+=p.vx; p.y+=p.vy; p.vy+=.1; p.life-=p.decay;
+    if(p.life<=0) return false;
+    ctx.save(); ctx.globalAlpha=p.life*.85; ctx.shadowBlur=6;
+    ctx.shadowColor=p.color; ctx.fillStyle=p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2); ctx.fill();
+    ctx.restore(); return true;
+  });
+  floaters = floaters.filter(f=>{
+    f.y+=f.vy; f.life-=f.decay;
+    if(f.life<=0) return false;
+    ctx.save(); ctx.globalAlpha=f.life;
+    ctx.font=`bold ${clamp(CW*.042,13,20)}px Orbitron`;
+    ctx.textAlign='center'; ctx.shadowBlur=10; ctx.shadowColor=f.color;
+    ctx.fillStyle=f.color; ctx.fillText(f.txt,f.x,f.y);
+    ctx.restore(); return true;
+  });
+}
+
+// ── MAIN LOOP ────────────────────────────────────────────
+function loop(ts){
+  if(!gameRunning) return;
+  const dt = Math.min(ts - lastFrame, 50); lastFrame = ts;
+  const conf = DIFF[difficulty];
+
+  if(shakeAmt > 0){
+    ctx.save();
+    ctx.translate((Math.random()-.5)*shakeAmt, (Math.random()-.5)*shakeAmt);
+    shakeAmt = Math.max(0, shakeAmt - 1.8);
+  }
+
+  drawBG(dt, speed);
+
+  // Spawn
+  if(ts - lastSpawnT > spawnMs){
+    spawnObj();
+    if(difficulty!=='easy' && hits > 40 && Math.random() < .3) spawnObj();
+    lastSpawnT = ts;
+  }
+
+  // Update objects
+  objects = objects.filter(o=>{
+    const step = dt/16;
+    o.y += o.vel * step;
+
+    // Hard mode lateral movement
+    if(o.wobble){
+      o.wobbleT += o.wobbleFreq * step * 60;
+      o.x += Math.sin(o.wobbleT) * o.wobble * step;
+    }
+    if(o.vx){
+      o.x += o.vx * step;
+      // Bounce off walls
+      if(o.x < o.r){ o.x = o.r; o.vx = Math.abs(o.vx); }
+      if(o.x > CW - o.r){ o.x = CW - o.r; o.vx = -Math.abs(o.vx); }
+    }
+    // Keep wobbling objects inside screen too
+    if(o.x < o.r) o.x = o.r;
+    if(o.x > CW - o.r) o.x = CW - o.r;
+
+    if(o.y > CH + o.r + 40){
+      if(!o.missed){ o.missed=true; onObjectMissed(o); }
+      return false;
+    }
+    drawObj(o);
+    return true;
+  });
+
+  runFX();
+  if(shakeAmt > 0) ctx.restore();
+  updateHUDValues();
+  animId = requestAnimationFrame(loop);
+}
+
+// ── Miss penalty ─────────────────────────────────────────
+function onObjectMissed(o){
+  // Grace: object was of the old target color and was already near bottom
+  // when the target changed — player had no time to react
+  if(o.grace) return;
+  // Only penalize if this is (still) the current target color
+  if(o.ci !== targetIdx) return;
+
+  combo = 0;
+  lives = Math.max(0, lives - 1);
+  shakeAmt = 14;
+  flashScrn('rgba(255,80,0,.18)');
+  const mb = document.getElementById('miss-bar');
+  mb.style.transform = 'scaleX(1)';
+  setTimeout(()=> mb.style.transform = 'scaleX(0)', 380);
+  updateLives();
+
+  if(lives <= 0){
+    showMissTxt('¡SIN VIDAS!');
+    setTimeout(()=> triggerGameOver(), 350);
+  } else {
+    showToast(`💨 ¡SE ESCAPÓ! -1 vida (${lives} restante${lives!==1?'s':''})`, '#ff8800');
+    showMissTxt('¡SE ESCAPÓ!');
+  }
+}
+
+// ── IMPROVED HIT DETECTION ───────────────────────────────
+// Uses canvas bounding rect + devicePixelRatio for accurate coordinates
+function getCanvasXY(e){
+  const rect = cv.getBoundingClientRect();
+  let cx, cy;
+  if(e.type.includes('pointer') || e.type.includes('mouse')){
+    cx = e.clientX; cy = e.clientY;
+  } else {
+    // Touch fallback (shouldn't be needed with pointerdown)
+    const t = e.changedTouches[0];
+    cx = t.clientX; cy = t.clientY;
+  }
+  // Map from CSS pixels to canvas logical pixels
+  const scaleX = CW / rect.width;
+  const scaleY = CH / rect.height;
+  return {
+    x: (cx - rect.left) * scaleX,
+    y: (cy - rect.top)  * scaleY,
+    isTouch: e.pointerType === 'touch'
+  };
+}
+
+cv.addEventListener('pointerdown', e=>{
+  if(gameState !== 'playing') return;
+  e.preventDefault();
+  const pos = getCanvasXY(e);
+  spawnRipple(pos.x, pos.y, pos.isTouch);
+  handleTap(pos.x, pos.y, pos.isTouch);
+}, {passive:false});
+
+function spawnRipple(x, y, isTouch){
+  const el = document.createElement('div');
+  el.className = 'ripple';
+  el.style.cssText = `left:${x - (isTouch?22:14)}px;top:${y - (isTouch?22:14)}px;
+    width:${isTouch?44:28}px;height:${isTouch?44:28}px;
+    border:2px solid rgba(255,255,255,.5);`;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(), 420);
+}
+
+function handleTap(px, py, isTouch){
+  if(!gameRunning) return;
+  // Larger hit zone for touch (finger > cursor)
+  const hitMult = isTouch ? 1.7 : 1.45;
+  let hit = null;
+  // Scan front-to-back (last spawned = visually on top)
+  for(let i = objects.length-1; i >= 0; i--){
+    const o = objects[i];
+    const dist = Math.hypot(px - o.x, py - o.y);
+    if(dist < o.r * hitMult){ hit = o; objects.splice(i,1); break; }
+  }
+  if(!hit) return;
+
+  if(hit.ci === targetIdx){
+    // ✅ CORRECT
+    combo++; hits++;
+    if(combo > maxCombo) maxCombo = combo;
+    const mult = getMult();
+    const pts  = Math.floor(mult * 10);
+    score += pts;
+
+    spawnParts(hit.x, hit.y, COLORS[hit.ci].h);
+    spawnFloat(hit.x, hit.y - hit.r - 10, `+${pts}`, COLORS[hit.ci].h);
+
+    if(combo===10) showToast('🔥 ×10 COMBO — ×1.2!', COLORS[targetIdx].h);
+    if(combo===25) showToast('⚡ ×25 COMBO — ×1.5!', '#ffe500');
+    if(combo===50) showToast('💥 IMPARABLE!', '#ff00ff');
+
+    // Scale difficulty
+    const conf = DIFF[difficulty];
+    speed   = conf.baseSpeed + hits * conf.speedPerHit;
+    spawnMs = Math.max(conf.minSpawnMs, conf.spawnMs - hits * 6.5);
+
+    if(combo>0 && combo%8===0) rotateTarget();
+    pulseTarget();
+    flashScrn('rgba(0,255,127,.04)');
+    updateBest();
+  } else {
+    // ❌ WRONG COLOR — instant game over
+    combo = 0;
+    lives = 0;
+    shakeAmt = 22;
+    flashScrn('rgba(255,34,68,.35)');
+    showMissTxt('¡EQUIVOCADO!');
+    updateLives();
+    showToast('💀 COLOR INCORRECTO', var_('--hard'));
+    setTimeout(() => triggerGameOver(), 350);
+  }
+}
+
+function getMult(){ return combo>=25?1.5:combo>=10?1.2:1; }
+
+function rotateTarget(){
+  const prev = targetIdx;
+  do{ targetIdx = Math.floor(Math.random()*activeColors); }
+  while(targetIdx===prev && activeColors>1);
+  // Mark objects of the OLD target that are already near the bottom
+  // (below 60% screen height) as "grace" — they won't penalize the player
+  const graceThreshold = CH * 0.60;
+  objects.forEach(o => {
+    if(o.ci === prev && o.y > graceThreshold) {
+      o.grace = true;
+    }
+  });
+  updateTargetUI();
+}
+
+// ── HUD updates ──────────────────────────────────────────
+function updateHUDValues(){
+  document.getElementById('hs').textContent = score.toLocaleString('es');
+
+  const ca = document.getElementById('hcombo');
+  const cn = document.getElementById('cnum');
+  const ct = document.getElementById('ctag');
+  if(combo >= 5){
+    ca.style.opacity = '.9';
+    cn.textContent = `×${combo}`;
+    const m = getMult();
+    if(m>1){ ct.textContent=`MULT ×${m.toFixed(1)}`; ct.style.color='#ffe500'; }
+    else   { ct.textContent='COMBO'; ct.style.color='var(--dim)'; }
+    cn.style.color = combo>=25?'#ff00cc':combo>=10?'#ffe500':'var(--cyan)';
+  } else { ca.style.opacity='0'; }
+
+  const conf = DIFF[difficulty];
+  const prog = Math.min(1,(speed - conf.baseSpeed)/(conf.baseSpeed*1.6));
+  document.getElementById('spd-bar').style.transform=`scaleX(${Math.max(0,prog)})`;
+}
+
+function updateTargetUI(){
+  const c = COLORS[targetIdx];
+  const tc = document.getElementById('tc'), tp = document.getElementById('tp');
+  tc.style.background = c.h;
+  tc.style.boxShadow = `0 0 22px ${c.g}.85), 0 0 40px ${c.g}.28)`;
+  tp.style.borderColor = c.h;
+}
+
+function pulseTarget(){
+  const tc = document.getElementById('tc');
+  tc.style.transform='scale(1.35)'; tc.style.transition='transform .1s var(--ease)';
+  setTimeout(()=>tc.style.transform='scale(1)', 120);
+}
+
+function updateBest(){
+  if(score > (currentUser?.bests[difficulty]||0)){
+    persistBest(difficulty, score);
+    document.getElementById('hbest').textContent = score.toLocaleString('es');
+  }
+}
+
+function updateLives(){
+  document.getElementById('hl').textContent = '❤️'.repeat(Math.max(0, lives));
+}
+
+// ── Visual feedback ───────────────────────────────────────
+function flashScrn(color){
+  const f=document.getElementById('flash');
+  f.style.background=color; f.style.opacity='1';
+  setTimeout(()=>f.style.opacity='0', 90);
+}
+
+let toastTmr=null;
+function showToast(txt, color='#fff'){
+  const n=document.getElementById('toast');
+  n.textContent=txt; n.style.color=color;
+  n.style.background='rgba(4,4,15,.94)';
+  n.style.border=`1px solid ${color}30`;
+  n.classList.add('on');
+  if(toastTmr) clearTimeout(toastTmr);
+  toastTmr=setTimeout(()=>n.classList.remove('on'), 2000);
+}
+
+let missTmr=null;
+function showMissTxt(txt){
+  const el=document.getElementById('miss-txt');
+  el.textContent=txt; el.classList.add('on');
+  if(missTmr) clearTimeout(missTmr);
+  missTmr=setTimeout(()=>el.classList.remove('on'), 650);
+}
+
+// ── Start game ────────────────────────────────────────────
+function startGame(){
+  if(!currentUser){ showScr('auth-screen'); return; }
+  const conf = DIFF[difficulty];
+  score=0; combo=0; maxCombo=0; hits=0;
+  lives=conf.lives; speed=conf.baseSpeed; spawnMs=conf.spawnMs;
+  activeColors=conf.colors; targetIdx=Math.floor(Math.random()*activeColors);
+  objects=[]; particles=[]; floaters=[]; shakeAmt=0;
+  lastSpawnT = performance.now() - 700;
+
+  document.getElementById('hs').textContent='0';
+  document.getElementById('hbest').textContent=(currentUser.bests[difficulty]||0).toLocaleString('es');
+  updateTargetUI(); updateLives();
+
+  const badge=document.getElementById('dbadge');
+  badge.textContent=conf.label; badge.className=`on ${conf.badgeClass}`;
+
+  document.getElementById('hud').classList.add('on');
+  showScr(null);
+
+  gameRunning=true; gameState='playing';
+  lastFrame=performance.now();
+  cancelAnimationFrame(animId);
+  animId=requestAnimationFrame(loop);
+}
+
+function retryGame(){
+  document.getElementById('hud').classList.remove('on');
+  showScr(null);
+  setTimeout(startGame, 40);
+}
+
+// ── Game over ─────────────────────────────────────────────
+function triggerGameOver(){
+  gameRunning=false; gameState='gameover';
+  shakeAmt=24;
+  flashScrn('rgba(255,34,68,.3)');
+  document.getElementById('hud').classList.remove('on');
+
+  const prev = currentUser?.bests[difficulty]||0;
+  const isRec = score > prev;
+  if(isRec) persistBest(difficulty, score);
+
+  document.getElementById('go-sc').textContent = score.toLocaleString('es');
+  document.getElementById('go-bs').textContent = Math.max(score,prev).toLocaleString('es');
+  document.getElementById('go-cb').textContent = maxCombo;
+  document.getElementById('go-mode').textContent = `Modo: ${DIFF[difficulty].label}`;
+
+  const rb=document.getElementById('rec-badge');
+  if(isRec){ rb.classList.add('on'); document.getElementById('go-sc').classList.add('r'); }
+  else      { rb.classList.remove('on'); document.getElementById('go-sc').classList.remove('r'); }
+
+  showScr('go-screen');
+  saveScoreRemote(currentUser.username, difficulty, score, maxCombo);
+  updateBestRow();
+}
+
+// ── Menu ──────────────────────────────────────────────────
+function pickDiff(d){
+  difficulty = d;
+  document.querySelectorAll('.diff-card').forEach(c=>{
+    c.classList.toggle('on', c.dataset.d===d);
+  });
+  document.getElementById('diff-desc-box').textContent = DIFF[d].desc;
+}
+pickDiff('easy');
+
+function updateBestRow(){
+  const row = document.getElementById('best-row');
+  if(!row || !currentUser) return;
+  const diffs=['easy','medium','hard'];
+  const colors=['var(--green)','var(--orange)','var(--hard)'];
+  const labels=['🟢','🟡','🔴'];
+  row.innerHTML = diffs.map((d,i)=>`
+    <div style="text-align:center;">
+      <div style="font-size:.55rem;color:var(--dim);letter-spacing:.15em;">${labels[i]}</div>
+      <div style="font-family:'Orbitron',monospace;font-size:.95rem;font-weight:700;color:${colors[i]};">
+        ${(currentUser.bests[d]||0).toLocaleString('es')}
+      </div>
+    </div>`).join('');
+}
+
+// ── Leaderboard ───────────────────────────────────────────
+let lbTab='easy';
+
+function openLB(){ lbPrevState='menu'; showLB(); }
+function openLBFromGO(){ lbPrevState='gameover'; showLB(); }
+function closeLB(){
+  if(lbPrevState==='gameover') showScr('go-screen');
+  else showScr('menu-screen');
+  gameState=lbPrevState;
+}
+
+function showLB(){
+  lbTab = difficulty;
+  document.querySelectorAll('.lb-tab').forEach(t=>t.classList.toggle('on',t.dataset.t===lbTab));
+  showScr('lb-screen');
+  renderLB(lbTab);
+}
+
+function lbSwitch(t){
+  lbTab=t;
+  document.querySelectorAll('.lb-tab').forEach(e=>e.classList.toggle('on',e.dataset.t===t));
+  renderLB(t);
+}
+
+async function renderLB(tab){
+  const list=document.getElementById('lb-list');
+  list.innerHTML='<div class="lb-loading">⏳ Cargando...</div>';
+  let all=await loadScoresRemote();
+
+  // Filter
+  let filtered = tab==='all' ? all : all.filter(s=>s.diff===tab);
+
+  // Deduplicate: keep best per user per diff
+  const seen={};
+  filtered = filtered.filter(s=>{
+    const k = tab==='all' ? `${s.username}_${s.diff}` : s.username;
+    if(seen[k]) return false;
+    seen[k]=true; return true;
+  });
+  filtered.sort((a,b)=>b.score-a.score);
+
+  if(!filtered.length){
+    list.innerHTML=`<div class="lb-empty">Sin puntuaciones aún en este modo.<br>¡Sé el primero!</div>`;
+    return;
+  }
+
+  const ri=['🥇','🥈','🥉'];
+  const rc=['g','s','b','n'];
+  const diffCol={easy:'easy',medium:'medium',hard:'hard'};
+  const diffLbl={easy:'Fácil',medium:'Medio',hard:'Difícil'};
+  const me=currentUser?.username;
+
+  list.innerHTML=filtered.slice(0,25).map((e,i)=>`
+    <div class="lb-item ${e.username===me?'me':''}">
+      <div class="lb-rank ${rc[Math.min(i,3)]}">${i<3?ri[i]:'#'+(i+1)}</div>
+      <div class="lb-info">
+        <div class="lb-name">${e.username}${e.username===me?' 👈':''}</div>
+        <div class="lb-sub">${tab==='all'?diffLbl[e.diff]+' · ':''}Combo: ${e.combo} · ${timeAgo(e.ts||e.date||0)}</div>
+      </div>
+      <div class="lb-val ${diffCol[e.diff]||''}">${(e.score||0).toLocaleString('es')}</div>
+    </div>`).join('');
+}
+
+function timeAgo(ts){
+  const d=Math.floor((Date.now()-ts)/1000);
+  if(!ts||d<0) return '—';
+  if(d<60)   return 'ahora';
+  if(d<3600) return Math.floor(d/60)+'min';
+  if(d<86400)return Math.floor(d/3600)+'h';
+  return Math.floor(d/86400)+'d';
+}
+
+// ── Screen manager ────────────────────────────────────────
+function showScr(id){
+  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
+  if(id) document.getElementById(id).classList.add('on');
+}
+
+// ── Firebase help ─────────────────────────────────────────
+function showGHHelp(){
+  alert(`CÓMO CONFIGURAR LA BASE DE DATOS (fichero GitHub)
+
+1. En tu repo de GitHub, crea un fichero llamado:
+      scores.json
+   con este contenido inicial:
+      []
+
+2. Ve a GitHub → tu avatar → Settings
+   → Developer settings → Personal access tokens
+   → Tokens (classic) → Generate new token (classic)
+   Nombre: tap-colors-db
+   Marca solo: repo (la primera casilla grande)
+   Copia el token (empieza por ghp_...)
+
+3. Abre index.html con un editor de texto
+   Busca DB_CONFIG al inicio del script y rellena:
+      token:  "ghp_TU_TOKEN_AQUI",
+      repo:   "TU_USUARIO/TU_REPO",
+
+4. Guarda y vuelve a subir index.html a GitHub
+
+¡Listo! Todas las puntuaciones se guardan en scores.json.`);
+}
+
+// ── Idle background loop ──────────────────────────────────
+(function idleLoop(){
+  if(gameState !== 'playing') drawBG(16, 0);
+  requestAnimationFrame(idleLoop);
+})();
+
+// ── Init ──────────────────────────────────────────────────
+function init(){
+  initDB();
+  // Restore session
+  const sess=getSession();
+  if(sess && sess.username){
+    currentUser=sess;
+    document.getElementById('chip-name').textContent=sess.username;
+    updateBestRow();
+    showScr('menu-screen');
+    gameState='menu';
+  }
+  // Keyboard Enter on auth inputs
+  ['li-pin','re-pin2'].forEach(id=>{
+    document.getElementById(id)?.addEventListener('keydown',e=>{
+      if(e.key==='Enter') id.startsWith('li')?doLogin():doRegister();
+    });
+  });
+  // Touch: prevent context menu on long press
+  document.addEventListener('contextmenu', e=>e.preventDefault());
+}
+
+function clamp(v,mn,mx){ return Math.max(mn,Math.min(mx,v)); }
+
+init();
+</script>
+</body>
+</html>
