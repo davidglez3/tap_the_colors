@@ -65,6 +65,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 .diff-card[data-d="medium"].on .diff-name{color:var(--orange);}
 .diff-card[data-d="hard"].on{border-color:var(--hard);background:rgba(255,34,68,.06);box-shadow:0 0 14px rgba(255,34,68,.2);}
 .diff-card[data-d="hard"].on .diff-name{color:var(--hard);}
+.diff-card[data-d="legendary"].on{border-color:#cc44ff;background:rgba(180,0,255,.07);box-shadow:0 0 18px rgba(180,0,255,.35),0 0 40px rgba(255,0,200,.12);}
+.diff-card[data-d="legendary"].on .diff-name{color:#cc44ff;}
 .diff-desc-box{font-size:.68rem;color:var(--dim2);text-align:center;max-width:280px;line-height:1.5;min-height:2.2rem;margin-bottom:.8rem;}
 #hud{position:fixed;inset:0;z-index:8;display:none;pointer-events:none;}
 #hud.on{display:block;}
@@ -94,6 +96,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 #dbadge.easy{background:rgba(0,255,127,.1);border:1px solid rgba(0,255,127,.3);color:var(--green);}
 #dbadge.medium{background:rgba(255,136,0,.1);border:1px solid rgba(255,136,0,.3);color:var(--orange);}
 #dbadge.hard{background:rgba(255,34,68,.1);border:1px solid rgba(255,34,68,.3);color:var(--hard);}
+#dbadge.legendary{background:rgba(180,0,255,.15);border:1px solid rgba(200,60,255,.5);color:#cc44ff;animation:legbadge 1.2s ease-in-out infinite;}
+@keyframes legbadge{0%,100%{box-shadow:0 0 6px rgba(180,0,255,.3)}50%{box-shadow:0 0 18px rgba(200,60,255,.8)}}
 #go-screen{background:rgba(4,4,10,.97);backdrop-filter:blur(14px);}
 .go-title{font-family:'Orbitron',monospace;font-weight:900;font-size:clamp(1.8rem,8vw,3rem);
   letter-spacing:.15em;color:var(--hard);text-shadow:0 0 28px rgba(255,34,68,.5);margin-bottom:.3rem;}
@@ -220,6 +224,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
     <div class="diff-card" data-d="hard" onclick="pickDiff('hard')">
       <span class="diff-icon">🔴</span><div class="diff-name">DIFÍCIL</div><div class="diff-info">7 col.</div>
     </div>
+    <div class="diff-card" data-d="legendary" onclick="pickDiff('legendary')">
+      <span class="diff-icon">💀</span><div class="diff-name" style="color:#884499;">LEGEND</div><div class="diff-info">9 col.</div>
+    </div>
   </div>
   <div class="diff-desc-box" id="diff-desc-box"></div>
   <div style="width:100%;max-width:260px;display:flex;flex-direction:column;gap:.45rem;">
@@ -298,7 +305,7 @@ const DB_CONFIG = {
   // ✅ URL del CSV publicado — necesitas conseguirla desde Google Sheets:
   // Archivo → Compartir → Publicar en la web → Hoja1 → CSV → Publicar
   // La URL debe terminar en: pub?output=csv  (NO en pubhtml ni viewform)
-  csvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vQzbVsXeoHIMFr2yhz_tWbizF_rv_5LABn_cz6EytACgzRW7ZcdGcSFm5N35iN59k4v-Qyett8zOPOr/pub?output=csv"
+  csvUrl: "PEGA_AQUI_URL_CSV"
 };
 
 // ── DB ────────────────────────────────────────────────────
@@ -467,9 +474,10 @@ function var_(n){ return getComputedStyle(document.documentElement).getPropertyV
 
 // ── Difficulty ────────────────────────────────────────────
 const DIFF = {
-  easy:  { label:'FÁCIL',   badgeClass:'easy',   desc:'3 colores · Caída lenta · 3 vidas',   colors:3, baseSpeed:1.9, spawnMs:1300, speedPerHit:.016, minSpawnMs:580, lives:3 },
-  medium:{ label:'MEDIO',   badgeClass:'medium', desc:'5 colores · Velocidad media · 3 vidas', colors:5, baseSpeed:2.9, spawnMs:920,  speedPerHit:.026, minSpawnMs:380, lives:3 },
-  hard:  { label:'DIFÍCIL', badgeClass:'hard',   desc:'7 colores · Muy rápido · 3 vidas · objetos en diagonal', colors:7, baseSpeed:4.2, spawnMs:560, speedPerHit:.038, minSpawnMs:230, lives:3 }
+  easy:      { label:'FÁCIL',      badgeClass:'easy',      desc:'3 colores · Caída lenta · 3 vidas',                              colors:3, baseSpeed:1.9, spawnMs:1300, speedPerHit:.016, minSpawnMs:580, lives:3 },
+  medium:    { label:'MEDIO',      badgeClass:'medium',    desc:'5 colores · Velocidad media · 3 vidas',                          colors:5, baseSpeed:2.9, spawnMs:920,  speedPerHit:.026, minSpawnMs:380, lives:3 },
+  hard:      { label:'DIFÍCIL',    badgeClass:'hard',      desc:'7 colores · Muy rápido · 3 vidas · diagonales y zigzag',         colors:7, baseSpeed:4.2, spawnMs:560,  speedPerHit:.038, minSpawnMs:230, lives:3 },
+  legendary: { label:'LEGENDARIO', badgeClass:'legendary', desc:'9 colores · Velocidad extrema · 3 vidas · caos total',           colors:9, baseSpeed:7.5, spawnMs:340,  speedPerHit:.065, minSpawnMs:120, lives:3 }
 };
 const COLORS = [
   {n:'ROJO',  h:'#ff2244',g:'rgba(255,34,68,'},
@@ -479,6 +487,8 @@ const COLORS = [
   {n:'CYAN',  h:'#00f0ff',g:'rgba(0,240,255,'},
   {n:'ROSA',  h:'#ff00cc',g:'rgba(255,0,204,'},
   {n:'NARANJ',h:'#ff8800',g:'rgba(255,136,0,'},
+  {n:'LILA',  h:'#cc44ff',g:'rgba(200,60,255,'},
+  {n:'BLANC', h:'#ffffff',g:'rgba(255,255,255,'},
 ];
 
 // ── Canvas ────────────────────────────────────────────────
@@ -538,17 +548,33 @@ function spawnObj(){
   let ci;
   if(isCorrect) ci=targetIdx;
   else{ do{ ci=Math.floor(Math.random()*activeColors); }while(ci===targetIdx); }
-  const r=clamp(CW*.057,26,54);
+  const r=clamp(CW*.057,26,54); // used for x placement only
   const x=r+12+Math.random()*(CW-r*2-24);
   const vel=conf.baseSpeed+hits*conf.speedPerHit;
+  // Smaller objects in legendary
+  const rFinal = (difficulty==='legendary') ? clamp(CW*.036,18,34) : clamp(CW*.057,26,54);
+
   let vx=0,wobble=0,wobbleFreq=0;
-  if(difficulty==='hard'){
+  if(difficulty==='hard' || difficulty==='legendary'){
     const st=Math.random();
-    if(st<0.35){ vx=(Math.random()*2.5+1.0)*(Math.random()<.5?1:-1); }
-    else if(st<0.65){ wobble=Math.random()*2.2+0.8; wobbleFreq=Math.random()*.04+.02; }
-    else{ vx=(Math.random()*1.4+0.4)*(Math.random()<.5?1:-1); wobble=Math.random()*1.4+0.4; wobbleFreq=Math.random()*.035+.018; }
+    const isLeg=(difficulty==='legendary');
+    if(st<0.35){
+      // Diagonal — much steeper in legendary
+      const baseVx = isLeg ? (Math.random()*5.5+3.0) : (Math.random()*2.5+1.0);
+      vx = baseVx * (Math.random()<.5?1:-1);
+    } else if(st<0.65){
+      // Zigzag — much more pronounced amplitude & faster frequency
+      wobble    = isLeg ? (Math.random()*7.0+4.0) : (Math.random()*2.2+0.8);
+      wobbleFreq= isLeg ? (Math.random()*.09+.05)  : (Math.random()*.04+.02);
+    } else {
+      // Both combined
+      const baseVx = isLeg ? (Math.random()*3.5+1.5) : (Math.random()*1.4+0.4);
+      vx         = baseVx * (Math.random()<.5?1:-1);
+      wobble     = isLeg ? (Math.random()*5.0+2.5) : (Math.random()*1.4+0.4);
+      wobbleFreq = isLeg ? (Math.random()*.07+.04)  : (Math.random()*.035+.018);
+    }
   }
-  objects.push({x,y:-r-8,r,ci,shape:SHAPES[Math.floor(Math.random()*3)],
+  objects.push({x,y:-rFinal-8,r:rFinal,ci,shape:SHAPES[Math.floor(Math.random()*3)],
     vel,vx,wobble,wobbleFreq,wobbleT:Math.random()*Math.PI*2,opacity:1,missed:false});
 }
 
@@ -598,6 +624,7 @@ function loop(ts){
   if(ts-lastSpawnT>spawnMs){
     spawnObj();
     if(difficulty!=='easy'&&hits>40&&Math.random()<.3)spawnObj();
+    if(difficulty==='legendary'&&hits>20&&Math.random()<.55)spawnObj();
     lastSpawnT=ts;
   }
   objects=objects.filter(o=>{
@@ -682,7 +709,7 @@ function getMult(){ return combo>=25?1.5:combo>=10?1.2:1; }
 function rotateTarget(){
   const prev=targetIdx;
   do{ targetIdx=Math.floor(Math.random()*activeColors); }while(targetIdx===prev&&activeColors>1);
-  const gt=CH*0.60;
+  const gt=CH*0.50;
   objects.forEach(o=>{ if(o.ci===prev&&o.y>gt)o.grace=true; });
   updateTargetUI();
 }
