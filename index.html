@@ -152,6 +152,23 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   font-family:'Orbitron',monospace;font-size:.55rem;font-weight:700;letter-spacing:.1em;
   color:#00ff7f;text-shadow:0 0 8px rgba(0,255,127,.5);opacity:0;pointer-events:none;z-index:8;text-align:center;}
 #survival-badge.on{opacity:1;}
+/* Pause button */
+#pause-btn{position:fixed;bottom:max(env(safe-area-inset-bottom),24px);right:18px;
+  font-family:'Orbitron',monospace;font-size:.58rem;font-weight:700;letter-spacing:.12em;
+  padding:.38rem 1rem;border-radius:8px;border:1.5px solid rgba(255,255,255,.18);
+  background:rgba(0,0,10,.55);color:rgba(255,255,255,.7);cursor:pointer;
+  pointer-events:all;z-index:12;transition:all .15s;backdrop-filter:blur(6px);
+  box-shadow:0 2px 12px rgba(0,0,0,.4);}
+#pause-btn:hover{border-color:rgba(255,255,255,.35);color:#fff;background:rgba(0,0,0,.6);}
+/* Pause overlay */
+#pause-overlay{position:fixed;inset:0;z-index:18;background:rgba(2,2,18,.88);backdrop-filter:blur(16px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.2rem;
+  opacity:0;pointer-events:none;transition:opacity .2s;}
+#pause-overlay.on{opacity:1;pointer-events:all;}
+#pause-overlay .pause-title{font-family:'Orbitron',monospace;font-weight:900;
+  font-size:clamp(2rem,8vw,3rem);letter-spacing:.15em;
+  background:linear-gradient(135deg,var(--cyan),var(--pink));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
 /* ── Post-game extra stats ── */
 .go-stats-extra{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:340px;margin:.5rem 0;}
 .go-st-sm{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:8px;
@@ -282,9 +299,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
     <div id="cnum" style="font-family:'Orbitron',monospace;font-weight:900;font-size:clamp(1.1rem,4vw,1.8rem);color:var(--cyan);line-height:1;"></div>
     <div id="ctag" style="font-size:.5rem;letter-spacing:.2em;color:var(--dim);margin-top:2px;"></div>
   </div>
+  <button id="pause-btn" onclick="togglePause()">⏸ PAUSA</button>
   <div id="spd-bar"></div>
   <div id="timer-hud"></div>
   <div id="survival-badge"></div>
+</div>
+
+<!-- PAUSE OVERLAY -->
+<div id="pause-overlay">
+  <div class="pause-title">PAUSA</div>
+  <button class="btn btn-primary" style="max-width:220px;" onclick="togglePause()">▶ CONTINUAR</button>
+  <button class="btn btn-ghost"   style="max-width:220px;" onclick="pauseToMenu()">🏠 MENÚ</button>
 </div>
 
 <!-- AUTH -->
@@ -369,7 +394,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 
 <!-- GAME OVER -->
 <div class="scr" id="go-screen" style="background:rgba(4,4,10,.97);backdrop-filter:blur(14px);">
-  <div class="go-title">GAME OVER</div>
+  <div class="go-title" id="go-title">GAME OVER</div>
   <div class="rec-badge" id="rec-badge">🏆 NUEVO RÉCORD</div>
   <div class="go-mode" id="go-mode"></div>
   <div class="go-stats">
@@ -1236,7 +1261,7 @@ function loop(ts){
 
 function onObjectMissed(o){
   if(o.grace)return;
-  const isTarget = difficulty==='hard' ? (o.ci===targetIdx && o.shape===targetShape) : (o.ci===targetIdx);
+  const isTarget = difficulty==='easy' ? (o.ci===targetIdx) : (o.ci===targetIdx && o.shape===targetShape);
   if(!isTarget)return;
   combo=0; shakeAmt=12;
   flashScrn('rgba(255,80,0,.15)');
@@ -1299,7 +1324,7 @@ function handleTap(px,py,isTouch){
     return;
   }
 
-  const correctHit = difficulty==='hard' ? (hit.ci===targetIdx && hit.shape===targetShape) : (hit.ci===targetIdx);
+  const correctHit = difficulty==='easy' ? (hit.ci===targetIdx) : (hit.ci===targetIdx && hit.shape===targetShape);
   if(correctHit){
     // Track reaction time
     if(targetChangedAt>0){ reactionTimes.push(performance.now()-targetChangedAt); targetChangedAt=0; }
@@ -1332,15 +1357,16 @@ function handleTap(px,py,isTouch){
     }
     pulseTarget(); flashScrn('rgba(0,255,127,.04)'); updateBest();
   } else {
-    currentStreak=0;
-    combo=0; lives=0; shakeAmt=22;
-    if(gameMode==='countdown'){ countdownTime=Math.max(0,countdownTime-6);  spawnFloat(px,py-30,'−6s','#ff2244'); }
-    flashScrn('rgba(255,34,68,.35)');
-    showMissTxt('¡EQUIVOCADO!'); updateLives();
+    currentStreak=0; combo=0; shakeAmt=18;
+    if(gameMode==='countdown'){ countdownTime=Math.max(0,countdownTime-6); spawnFloat(px,py-30,'−6s','#ff2244'); }
+    flashScrn('rgba(255,34,68,.3)');
+    const wrongMsg = (difficulty!=='easy' && hit.ci===targetIdx) ? '💀 FORMA INCORRECTA' : '💀 COLOR INCORRECTO';
+    showMissTxt('¡EQUIVOCADO!');
     SFX.wrong();
-    const wrongMsg=difficulty==='hard'&&hit.ci===targetIdx?'💀 FORMA INCORRECTA':'💀 COLOR INCORRECTO';
-    showToast(wrongMsg,var_('--hard'));
-    setTimeout(()=>triggerGameOver(),350);
+    showToast(wrongMsg, var_('--hard'));
+    lives = Math.max(0, lives-1);
+    updateLives();
+    if(lives<=0) setTimeout(()=>triggerGameOver(), 350);
   }
 }
 
@@ -1466,7 +1492,7 @@ function rotateTarget(){
   const prevShape=targetShape;
   do{ targetIdx=Math.floor(Math.random()*activeColors); }while(targetIdx===prev&&activeColors>1);
   if(difficulty==='hard'){
-    do{ targetShape=SHAPES[Math.floor(Math.random()*SHAPES.length)]; }while(targetShape===prevShape);
+    if(difficulty!=='easy'){ do{ targetShape=SHAPES[Math.floor(Math.random()*SHAPES.length)]; }while(targetShape===prevShape); }
   }
   hitsOnTarget=0;
   nextRotateAt=1+Math.floor(rand()*10);
@@ -1537,9 +1563,20 @@ function updateTargetUI(){
     cx2.shadowBlur=14; cx2.shadowColor=col.h;
     cx2.fillStyle=col.h; cx2.strokeStyle='rgba(255,255,255,.25)'; cx2.lineWidth=2;
     cx2.beginPath();
-    if(targetShape==='circle'){ cx2.arc(half,half,r2,0,Math.PI*2); }
-    else if(targetShape==='square'){ cx2.roundRect(half-r2,half-r2,r2*2,r2*2,r2*.28); }
-    else{ cx2.moveTo(half,half-r2);cx2.lineTo(half+r2,half);cx2.lineTo(half,half+r2);cx2.lineTo(half-r2,half);cx2.closePath(); }
+    switch(targetShape){
+      case 'circle':  cx2.arc(half,half,r2,0,Math.PI*2); break;
+      case 'square':  cx2.roundRect(half-r2,half-r2,r2*2,r2*2,r2*.22); break;
+      case 'diamond': cx2.moveTo(half,half-r2);cx2.lineTo(half+r2*.85,half);cx2.lineTo(half,half+r2);cx2.lineTo(half-r2*.85,half);cx2.closePath(); break;
+      case 'triangle':
+        for(let i=0;i<3;i++){const a=i*Math.PI*2/3-Math.PI/2;i===0?cx2.moveTo(half+Math.cos(a)*r2,half+Math.sin(a)*r2):cx2.lineTo(half+Math.cos(a)*r2,half+Math.sin(a)*r2);}
+        cx2.closePath(); break;
+      case 'hexagon':
+        for(let i=0;i<6;i++){const a=i*Math.PI/3;i===0?cx2.moveTo(half+Math.cos(a)*r2,half+Math.sin(a)*r2):cx2.lineTo(half+Math.cos(a)*r2,half+Math.sin(a)*r2);}
+        cx2.closePath(); break;
+      case 'star5':
+        for(let i=0;i<10;i++){const a=i*Math.PI/5-Math.PI/2,rr=i%2===0?r2:r2*.42;i===0?cx2.moveTo(half+Math.cos(a)*rr,half+Math.sin(a)*rr):cx2.lineTo(half+Math.cos(a)*rr,half+Math.sin(a)*rr);}
+        cx2.closePath(); break;
+    }
     cx2.fill(); cx2.stroke();
     cx2.shadowBlur=0; cx2.fillStyle='rgba(0,0,0,.7)';
     cx2.font=`bold ${Math.round(r2*.42)}px Rajdhani`;
@@ -1550,7 +1587,7 @@ function updateTargetUI(){
     if(!si){ si=document.createElement('div'); si.id='target-shape-label';
       si.style.cssText='font-size:.48rem;letter-spacing:.12em;margin-top:3px;font-family:Rajdhani,sans-serif;font-weight:700;text-align:center;';
       document.querySelector('.htarget').appendChild(si); }
-    const shapeLabel={circle:'CÍRCULO',square:'CUADRADO',diamond:'ROMBO'};
+    const shapeLabel={circle:'CÍRCULO',square:'CUADRADO',diamond:'ROMBO',triangle:'TRIÁNGULO',hexagon:'HEXÁGONO',star5:'ESTRELLA'};
     si.textContent=shapeLabel[targetShape]; si.style.color=col.h;
   } else {
     tc.style.display='';
@@ -1629,7 +1666,7 @@ function startGame(seedOverride){
   updateSurvivalBadge();
 
   targetIdx=Math.floor(rand()*activeColors);
-  targetShape=difficulty==='hard'?SHAPES[Math.floor(rand()*SHAPES.length)]:'circle';
+  targetShape=(difficulty==='hard'||difficulty==='medium')?SHAPES[Math.floor(rand()*SHAPES.length)]:'circle';
   hitsOnTarget=0; nextRotateAt=1+Math.floor(rand()*10);
   const sl=document.getElementById('side-left'),sr=document.getElementById('side-right');
   if(sl)sl.style.opacity='0'; if(sr)sr.style.opacity='0';
@@ -1660,6 +1697,8 @@ function exitToMenu(){
 }
 
 function triggerGameOver(){
+  const gt=document.getElementById('go-title');
+  if(gt) gt.textContent='¡TE HAN DADO MECHA!';
   gameRunning=false;gameState='gameover';shakeAmt=24;
   document.getElementById('timer-hud').classList.remove('on','survival-mode','urgent');
   document.getElementById('survival-badge').classList.remove('on');
@@ -2219,6 +2258,36 @@ function updateMusicBtn(){
   if(b) b.textContent=MUSIC.isPlaying()?'🔊 MÚSICA':'🔇 MÚSICA';
 }
 
+
+// ── PAUSE ────────────────────────────────────────────────
+let gamePaused=false;
+function togglePause(){
+  if(!gameRunning) return;
+  gamePaused=!gamePaused;
+  const ov=document.getElementById('pause-overlay');
+  const btn=document.getElementById('pause-btn');
+  if(gamePaused){
+    ov.classList.add('on');
+    btn.textContent='▶ CONTINUAR';
+    MUSIC.stop();
+    cancelAnimationFrame(animId);
+  } else {
+    ov.classList.remove('on');
+    btn.textContent='⏸ PAUSA';
+    if(MUSIC.enabled) MUSIC.start();
+    lastFrame=performance.now();
+    animId=requestAnimationFrame(loop);
+  }
+}
+function pauseToMenu(){
+  gamePaused=false;
+  document.getElementById('pause-overlay').classList.remove('on');
+  gameRunning=false; cancelAnimationFrame(animId);
+  MUSIC.stop();
+  document.getElementById('hud').classList.remove('on');
+  objects=[]; particles=[]; floaters=[];
+  showScr('menu-screen'); gameState='menu';
+}
 
 init();
 </script>
